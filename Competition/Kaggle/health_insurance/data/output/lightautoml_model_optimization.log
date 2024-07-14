@@ -1,0 +1,24 @@
+2024-07-14 12:06:13,309 LightAutoML AUC score on validation data: 0.8904
+2024-07-14 12:07:55,174 Predictions saved to ./health_insurance/data/output/sample_submission_LightAutoML_0.8904_20240714_120749.csv
+2024-07-14 12:18:25,276 LightAutoML AUC score on validation data: 0.8904
+2024-07-14 12:20:04,377 Predictions saved to ./health_insurance/data/output/sample_submission_LightAutoML_0.8904_20240714_122000.csv
+2024-07-14 12:20:04,377 Elapsed time: 502.72 seconds
+2024-07-14 12:43:01,537 LightAutoML AUC score on validation data: 0.8902
+2024-07-14 12:49:54,669 LightAutoML AUC score on validation data: 0.8892
+2024-07-14 12:51:45,921 Predictions saved to ./health_insurance/data/output/sample_submission_LightAutoML_0.8892_20240714_125142.csv
+2024-07-14 12:51:45,921 Elapsed time: 298.00 seconds
+2024-07-14 13:13:27,751 LightAutoML AUC score on validation data: 0.8895
+2024-07-14 13:17:33,438 Predictions saved to ./health_insurance/data/output/sample_submission_LightAutoML_0.8895_20240714_131727.csv
+2024-07-14 13:17:33,438 Elapsed time: 460.93 seconds
+2024-07-14 14:25:28,142 LightAutoML AUC score on validation data: 0.9710
+2024-07-14 14:27:50,012 Predictions saved to ./health_insurance/data/output/sample_submission_LightAutoML_0.9710_20240714_142744.csv
+2024-07-14 14:27:50,012 Elapsed time: 902.95 seconds
+2024-07-14 15:32:19,817 LightAutoML AUC score on training data: 0.9713
+2024-07-14 15:34:06,489 Predictions saved to ./health_insurance/data/output/sample_submission_LightAutoML_0.9713_20240714_153400.csv
+2024-07-14 15:34:06,489 Elapsed time: 1524.37 seconds
+2024-07-14 16:55:31,698 LightAutoML AUC score on validation data: 0.9711
+2024-07-14 16:57:53,999 Predictions saved to ./health_insurance/data/output/sample_submission_LightAutoML_0.9711_20240714_165748.csv
+2024-07-14 16:57:53,999 Elapsed time: 3478.89 seconds
+2024-07-14 21:23:38,639 LightAutoML AUC score on validation data: 0.9714
+2024-07-14 21:27:01,597 Predictions saved to ./health_insurance/data/output/sample_submission_LightAutoML_0.9714_20240714_212656.csv
+2024-07-14 21:27:01,597 Elapsed time: 16061.93 seconds

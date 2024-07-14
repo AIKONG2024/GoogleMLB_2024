@@ -1,0 +1,15 @@
+2024-07-14 02:10:43,939 XGBoost Best Parameters: {'max_depth': 13, 'eta': 0.1328677205013976, 'subsample': 0.9867240675712124, 'colsample_bytree': 0.5002170239376103, 'lambda': 0.6201777670632886, 'alpha': 0.0001373893851440918}
+2024-07-14 02:10:43,939 XGBoost Best AUC: 0.8783144547506126
+2024-07-14 07:19:57,030 CatBoost Best Parameters: {'iterations': 1968, 'depth': 9, 'learning_rate': 0.09481179734581727, 'random_strength': 85, 'bagging_temperature': 0.9006366708656831, 'border_count': 255, 'l2_leaf_reg': 7.442396684654969}
+2024-07-14 07:19:57,030 CatBoost Best AUC: 0.8798985238488486
+2024-07-14 09:29:08,843 LightGBM Best Parameters: {'num_leaves': 394, 'max_depth': 43, 'learning_rate': 0.03789870731782256, 'n_estimators': 763, 'min_child_samples': 100, 'subsample': 0.823172113877657, 'colsample_bytree': 0.5824552111200273}
+2024-07-14 09:29:08,843 LightGBM Best AUC: 0.8804884361966715
+2024-07-14 11:27:42,124 XGBoost Best Parameters: {'max_depth': 10, 'eta': 0.06045429821964964, 'subsample': 0.8521982746791634, 'colsample_bytree': 0.7586646972457305, 'lambda': 0.00018829934651244646, 'alpha': 2.682722206867343e-06}
+2024-07-14 11:27:42,124 XGBoost Best AUC: 0.8751265826648017
+2024-07-14 11:32:30,086 CatBoost Best Parameters: {'iterations': 1914, 'depth': 12, 'learning_rate': 0.017715561126418717, 'random_strength': 100, 'bagging_temperature': 0.6642842062103703, 'border_count': 53, 'l2_leaf_reg': 4.914728633820714}
+2024-07-14 11:32:30,086 CatBoost Best AUC: 0.8698042972941753
+2024-07-14 11:34:46,175 LightGBM Best Parameters: {'num_leaves': 274, 'max_depth': 45, 'learning_rate': 0.13046947270201403, 'n_estimators': 2439, 'min_child_samples': 28, 'subsample': 0.8556433489408044, 'colsample_bytree': 0.5126001974750081}
+2024-07-14 11:34:46,175 LightGBM Best AUC: 0.8742208439405893
+2024-07-14 11:42:17,896 AUC Score of Hard Voting model on Validation Data is: 0.5252
+2024-07-14 11:49:26,536 AUC Score of Soft Voting model on Validation Data is: 0.8749
+2024-07-14 11:49:26,536 The best ensemble model is Soft Voting with AUC score of 0.8749
