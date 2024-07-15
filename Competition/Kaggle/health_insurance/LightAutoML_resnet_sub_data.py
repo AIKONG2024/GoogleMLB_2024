@@ -1,15 +1,14 @@
-import os
-import time
-import pandas as pd
 import numpy as np
-from sklearn.metrics import roc_auc_score
-import torch
+import pandas as pd
+import polars as pl
 import logging
+from sklearn.metrics import roc_auc_score
 from lightautoml.automl.presets.tabular_presets import TabularAutoML
 from lightautoml.tasks import Task
 from datetime import datetime
-from imblearn.over_sampling import SMOTE
-from sklearn.preprocessing import LabelEncoder
+import time
+import os
+import torch
 
 N_THREADS = os.cpu_count()
 # Device setup
@@ -19,40 +18,47 @@ np.random.seed(42)
 torch.set_num_threads(N_THREADS)
 if device == 'cuda':
     torch.cuda.set_device(0)
-
-# Directory settings
-dir = '../health_insurance/data/'
-output_dir = dir + "output/"
-os.makedirs(output_dir, exist_ok=True)
-
-# Logging setup
-log_filename = os.path.join(output_dir, 'lightautoml_model_optimization.log')
-logging.basicConfig(filename=log_filename, level=logging.INFO, format='%(asctime)s %(message)s')
-
-# Start timer
-start_time = time.time()
-
-# Load data
-df_train = pd.read_csv(dir + 'train_s.csv')
-df_test = pd.read_csv(dir + 'test.csv')
-
-# Define preprocessing function
-def preprocess_data(df):
-    def veh_a(Vehicle_Damage):
-        return 1 if Vehicle_Damage == 'Yes' else 0
-
-    df['Vehicle_Damages'] = df['Vehicle_Damage'].apply(veh_a)
-    df.drop(['Vehicle_Damage'], axis=1, inplace=True)
     
-    df['Vehicle_Age'] = df['Vehicle_Age'].astype('category')
-    df = pd.get_dummies(df, columns=['Vehicle_Age'], drop_first=True)
-    df['Gender'] = df['Gender'].astype('category')
-    df = pd.get_dummies(df, columns=['Gender'], drop_first=True)
-    return df
+start_time = time.time()
+orig_train = pl.read_csv('./health_insurance/data/train.csv')
+print("Original train shape", orig_train.shape)
 
-# Apply preprocessing
-df_train = preprocess_data(df_train)
-df_test = preprocess_data(df_test)
+train = pl.read_csv('./health_insurance/data/train_n.csv')
+print("Train shape", train.shape)
+
+train = pl.concat([train, orig_train])
+print("Train + orig_train shape", train.shape)
+
+test = pl.read_csv('./health_insurance/data/test.csv')
+print("Test shape", test.shape)
+
+target = 'Response'
+test = test.with_columns(pl.lit(0).cast(pl.Int64).alias(target))
+
+df = pl.concat([train, test])
+
+df = df.with_columns([
+    pl.col('Gender').replace({'Male': 0, 'Female': 1}).cast(pl.Int32),
+    pl.col('Region_Code').cast(int),
+    pl.col('Vehicle_Age').replace({'< 1 Year': 0, '1-2 Year': 1, '> 2 Years': 2}).cast(pl.Int32),
+    pl.col('Vehicle_Damage').replace({'No': 0, 'Yes': 1}).cast(pl.Int32),
+    pl.col('Annual_Premium').cast(int),
+    pl.col('Policy_Sales_Channel').cast(int)
+])
+
+df = df.with_columns([
+    (pl.Series(pd.factorize((df['Previously_Insured'].cast(str) + df['Annual_Premium'].cast(str)).to_numpy())[0])).alias('Previously_Insured_Annual_Premium'),
+    (pl.Series(pd.factorize((df['Previously_Insured'].cast(str) + df['Vehicle_Age'].cast(str)).to_numpy())[0])).alias('Previously_Insured_Vehicle_Age'),
+    (pl.Series(pd.factorize((df['Previously_Insured'].cast(str) + df['Vehicle_Damage'].cast(str)).to_numpy())[0])).alias('Previously_Insured_Vehicle_Damage'),
+    (pl.Series(pd.factorize((df['Previously_Insured'].cast(str) + df['Vintage'].cast(str)).to_numpy())[0])).alias('Previously_Insured_Vintage')
+])
+
+train = df[:train.shape[0]].to_pandas()
+test = df[train.shape[0]:].to_pandas()
+    
+X = train.drop(['id', target], axis=1)
+y = train[target]
+X_test = test.drop(['id', target], axis=1)
 
 # Define memory reduction function
 def reduce_mem_usage(df):
@@ -92,21 +98,17 @@ def reduce_mem_usage(df):
     return df
 
 # Apply memory reduction
-df_train = reduce_mem_usage(df_train)
-df_test = reduce_mem_usage(df_test)
+df_train = reduce_mem_usage(train)
+df_test = reduce_mem_usage(test)
 
 # Feature and label separation
 X_train = df_train.drop(columns=['Response', 'id'])
 y_train = df_train['Response']
 X_test = df_test.drop(columns=['id'])
 
-# Apply SMOTE for handling imbalanced data
-smote = SMOTE(random_state=42, sampling_strategy='minority')
-X_train_resampled, y_train_resampled = smote.fit_resample(X_train, y_train)
-
 # Create a new dataframe with resampled data
-df_train_resampled = pd.DataFrame(X_train_resampled, columns=X_train.columns)
-df_train_resampled['Response'] = y_train_resampled
+df_train_resampled = pd.DataFrame(X_train, columns=X_train.columns)
+df_train_resampled['Response'] = y_train
 
 # LightAutoML model setup and training
 task = Task('binary')
@@ -116,7 +118,7 @@ automl = TabularAutoML(
     cpu_limit=os.cpu_count(),
     general_params={"use_algos": [['resnet']]},
     nn_params={
-        "n_epochs": 20,
+        "n_epochs": 5,
         "bs": 1024,
         "num_workers": 0,
         "path_to_save": None,
@@ -124,14 +126,14 @@ automl = TabularAutoML(
         "cont_embedder": 'plr',
         'cat_embedder': 'weighted',
         "hidden_size": 32,
-        'hid_factor': [128, 64],
+        'hid_factor': [32, 32],
         'embedding_size': 32,
         'stop_by_metric': True,
         'verbose_bar': True,
-        "snap_params": {'k': 2, 'early_stopping': True, 'patience': 7, 'swa': True}
+        "snap_params": {'k': 2, 'early_stopping': True, 'patience': 2, 'swa': True}
     },
     nn_pipeline_params={"use_qnt": False, "use_te": False},
-    reader_params={'n_jobs': os.cpu_count(), 'cv': 5, 'random_state': 42, 'advanced_roles': True}
+    reader_params={'n_jobs': os.cpu_count(), 'cv': 9, 'random_state': 42, 'advanced_roles': True}
 )
 
 out_of_fold_predictions = automl.fit_predict(
@@ -143,8 +145,7 @@ out_of_fold_predictions = automl.fit_predict(
 )
 
 # AUC evaluation
-auc_score = roc_auc_score(y_train_resampled, out_of_fold_predictions.data)
-logging.info(f"LightAutoML AUC score on validation data: {auc_score:.4f}")
+auc_score = roc_auc_score(y_train, out_of_fold_predictions.data)
 print(f"LightAutoML AUC score on validation data: {auc_score:.4f}")
 
 # Final test data prediction
@@ -156,8 +157,8 @@ pred_df = pd.DataFrame(y_pred, columns=['Response'])
 
 # Save results to sample_submission.csv
 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-output_file_path = os.path.join(output_dir, f'sample_submission_LightAutoML_{auc_score:.4f}_{timestamp}.csv')
-df_submission = pd.read_csv(dir + 'sample_submission.csv')
+output_file_path = os.path.join('./health_insurance/data/output', f'sample_submission_LightAutoML_{auc_score:.4f}_{timestamp}.csv')
+df_submission = pd.read_csv('./health_insurance/data/sample_submission.csv')
 df_submission['Response'] = pred_df
 df_submission.to_csv(output_file_path, index=False)
 
