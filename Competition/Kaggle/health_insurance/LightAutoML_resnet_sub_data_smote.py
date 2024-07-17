@@ -9,6 +9,7 @@ from datetime import datetime
 import time
 import os
 import torch
+from imblearn.over_sampling import SMOTE
 
 N_THREADS = os.cpu_count()
 # Device setup
@@ -106,9 +107,13 @@ X_train = df_train.drop(columns=['Response', 'id'])
 y_train = df_train['Response']
 X_test = df_test.drop(columns=['id'])
 
+# Apply SMOTE to training data
+smote = SMOTE(random_state=42)
+X_train_resampled, y_train_resampled = smote.fit_resample(X_train, y_train)
+
 # Create a new dataframe with resampled data
-df_train_resampled = pd.DataFrame(X_train, columns=X_train.columns)
-df_train_resampled['Response'] = y_train
+df_train_resampled = pd.DataFrame(X_train_resampled, columns=X_train.columns)
+df_train_resampled['Response'] = y_train_resampled
 
 # LightAutoML model setup and training
 task = Task('binary')
@@ -116,7 +121,7 @@ automl = TabularAutoML(
     task=task,
     timeout=9 * 3600,
     cpu_limit=os.cpu_count(),
-    general_params={"use_algos": [['lgb']]},
+    general_params={"use_algos": [['resnet']]},
     nn_params={
         "n_epochs": 5,
         "bs": 1024,
@@ -126,14 +131,14 @@ automl = TabularAutoML(
         "cont_embedder": 'plr',
         'cat_embedder': 'weighted',
         "hidden_size": 32,
-        'hid_factor': [32, 16],
+        'hid_factor': [32, 32],
         'embedding_size': 32,
         'stop_by_metric': True,
         'verbose_bar': True,
         "snap_params": {'k': 2, 'early_stopping': True, 'patience': 2, 'swa': True}
     },
     nn_pipeline_params={"use_qnt": False, "use_te": False},
-    reader_params={'n_jobs': os.cpu_count(), 'cv': 15, 'random_state': 777, 'advanced_roles': True}
+    reader_params={'n_jobs': os.cpu_count(), 'cv': 7, 'random_state': 42, 'advanced_roles': True}
 )
 
 out_of_fold_predictions = automl.fit_predict(
@@ -145,7 +150,7 @@ out_of_fold_predictions = automl.fit_predict(
 )
 
 # AUC evaluation
-auc_score = roc_auc_score(y_train, out_of_fold_predictions.data)
+auc_score = roc_auc_score(y_train_resampled, out_of_fold_predictions.data)
 print(f"LightAutoML AUC score on validation data: {auc_score:.4f}")
 
 # Final test data prediction

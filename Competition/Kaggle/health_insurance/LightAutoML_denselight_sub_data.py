@@ -9,6 +9,7 @@ from datetime import datetime
 import time
 import os
 import torch
+from sklearn.model_selection import train_test_split
 
 N_THREADS = os.cpu_count()
 # Device setup
@@ -110,36 +111,41 @@ X_test = df_test.drop(columns=['id'])
 df_train_resampled = pd.DataFrame(X_train, columns=X_train.columns)
 df_train_resampled['Response'] = y_train
 
+X_train, X_val = train_test_split(df_train_resampled, test_size=0.2, random_state=42, shuffle=True, stratify=df_train_resampled.Response)
+
 # LightAutoML model setup and training
-task = Task('binary')
+task = Task('binary') #‘binary’ 
 automl = TabularAutoML(
-    task=task,
-    timeout=9 * 3600,
-    cpu_limit=os.cpu_count(),
-    general_params={"use_algos": [['lgb']]},
-    nn_params={
-        "n_epochs": 5,
-        "bs": 1024,
-        "num_workers": 0,
-        "path_to_save": None,
+    task = task, 
+    timeout = 600 * 3600,
+    cpu_limit = 2,
+    gpu_ids = '0',
+    general_params = {"use_algos": [['denselight']]},
+    nn_params = {
+        "n_epochs": 10, 
+        "bs": 1024, 
+        "num_workers": 0, 
+        "path_to_save": None, 
         "freeze_defaults": True,
         "cont_embedder": 'plr',
         'cat_embedder': 'weighted',
-        "hidden_size": 32,
-        'hid_factor': [32, 16],
-        'embedding_size': 32,
+        'act_fun': 'SiLU',
+        "hidden_size": [512, 128], #32,
         'stop_by_metric': True,
+        'embedding_size': 32,
         'verbose_bar': True,
-        "snap_params": {'k': 2, 'early_stopping': True, 'patience': 2, 'swa': True}
+        "snap_params": { 'k': 2, 'early_stopping': True, 'patience': 1, 'swa': True }, 
+        'opt_params': { 'lr': 0.0003 , 'weight_decay': 0 }
     },
-    nn_pipeline_params={"use_qnt": False, "use_te": False},
-    reader_params={'n_jobs': os.cpu_count(), 'cv': 15, 'random_state': 777, 'advanced_roles': True}
+    nn_pipeline_params = {"use_qnt": True, "use_te": False},
+    reader_params = {'n_jobs': 12, 'cv': 5, 'random_state': 42, 'advanced_roles': True}
 )
 
 out_of_fold_predictions = automl.fit_predict(
-    df_train_resampled,
+    X_train, valid_data=X_val,
     roles = {
         'target': 'Response',
+        'drop': ['id'],
     }, 
     verbose = 4
 )
