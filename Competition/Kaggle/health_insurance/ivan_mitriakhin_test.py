@@ -3,19 +3,15 @@ import pandas as pd
 import polars as pl
 
 orig_train = pl.read_csv('./health_insurance/data/train_n.csv')
-print("Original train shape", orig_train.shape)
-print()
+print("Original train shape",orig_train.shape)
 
 train = pl.read_csv('./health_insurance/data/train.csv')
-print("Train shape", train.shape)
-print()
+print("Train shape",train.shape)
 
 train = pl.concat([train, orig_train])
-print("Train + orig_train shape", train.shape)
-print()
+print("Train + orig_train shape",train.shape)
 
 test = pl.read_csv('./health_insurance/data/test.csv')
-print("Test shape", test.shape)
 
 target = 'Response'
 test = test.with_columns(pl.lit(0).cast(pl.Int64).alias(target))
@@ -45,12 +41,14 @@ X = train.drop(['id', target], axis=1)
 y = train[target]
 X_test = test.drop(['id', target], axis=1)
 
+
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import StratifiedKFold
-import xgboost as xgb
+import catboost as cb
+from catboost import Pool
 import gc
 
-FOLDS = 5
+FOLDS = 2
 skf = StratifiedKFold(n_splits=FOLDS, shuffle=True, random_state=42)
 test_preds = np.zeros((len(X_test), FOLDS), dtype=np.float32)
 scores = []
@@ -62,30 +60,41 @@ for fold, (train_idx, val_idx) in enumerate(skf.split(X, y)):
     y_train_fold = y.loc[train_idx].values
     X_val_fold = X.loc[val_idx]
     y_val_fold = y.loc[val_idx].values
+    X_train_pool = Pool(X_train_fold, y_train_fold, cat_features=X.columns.values)
+    X_val_pool = Pool(X_val_fold, y_val_fold, cat_features=X.columns.values)
+    X_test_pool = Pool(X_test, cat_features=X_test.columns.values)
     
-    dtrain = xgb.DMatrix(X_train_fold, label=y_train_fold)
-    dval = xgb.DMatrix(X_val_fold, label=y_val_fold)
-    dtest = xgb.DMatrix(X_test)
-    
-    params = {
-        'objective': 'binary:logistic',
-        'eval_metric': 'auc',
-        'random_state': 42,
-        'tree_method': 'gpu_hist'  # Use 'gpu_hist' for GPU acceleration, or 'hist' for CPU
-    }
+    # Train CatBoost
+    model = cb.CatBoostClassifier(
+        loss_function='Logloss',
+        eval_metric='AUC',
+        class_names=[0, 1],
+        learning_rate=0.075,
+        iterations=5000,
+        depth=9,
+        random_strength=0,
+        l2_leaf_reg=0.5,
+        max_leaves=512,
+        fold_permutation_block=64,
+        task_type='GPU',
+        random_seed=42,
+        verbose=False
+    )
 
-    watchlist = [(dtrain, 'train'), (dval, 'eval')]
-    model = xgb.train(params, dtrain, num_boost_round=5000, evals=watchlist, early_stopping_rounds=200, verbose_eval=500)
-    
-    score = model.best_score
+    model.fit(X=X_train_pool, 
+              eval_set=X_val_pool, 
+              verbose=500, 
+              early_stopping_rounds=200)
+
+    score = model.best_score_['validation']['AUC']
     print('Fold ROC-AUC score: ', score)
     scores.append(score)
 
-    test_preds[:, fold] = model.predict(dtest)
+    test_preds[:, fold] = model.predict_proba(X_test)[:, 1]
     
     del X_train_fold, y_train_fold
     del X_val_fold, y_val_fold
-    del dtrain, dval, dtest
+    del X_train_pool, X_val_pool, X_test_pool
     del model
     gc.collect()
 
@@ -95,4 +104,4 @@ test_preds = np.mean(test_preds, axis=1)
 submission = pd.read_csv('./health_insurance/data/sample_submission.csv')
 submission[target] = test_preds.astype(np.float32)
 submission['id'] = submission['id'].astype(np.int32)
-submission.to_csv('submission_n.csv', index=False)
+submission.to_csv('submission_test.csv', index=False)

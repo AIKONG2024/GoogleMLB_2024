@@ -20,10 +20,10 @@ if device == 'cuda':
     torch.cuda.set_device(0)
     
 start_time = time.time()
-orig_train = pl.read_csv('./health_insurance/data/train.csv')
+orig_train = pl.read_csv('./health_insurance/data/train_n.csv')
 print("Original train shape", orig_train.shape)
 
-train = pl.read_csv('./health_insurance/data/train_n.csv')
+train = pl.read_csv('./health_insurance/data/train.csv')
 print("Train shape", train.shape)
 
 train = pl.concat([train, orig_train])
@@ -118,7 +118,7 @@ automl = TabularAutoML(
     cpu_limit=os.cpu_count(),
     general_params={"use_algos": [['resnet']]},
     nn_params={
-        "n_epochs": 7,
+        "n_epochs": 4,
         "bs": 1024,
         "num_workers": 0,
         "path_to_save": None,
@@ -127,13 +127,13 @@ automl = TabularAutoML(
         'cat_embedder': 'weighted',
         "hidden_size": 32,
         'hid_factor': [32, 16],
-        'embedding_size': 128,
+        'embedding_size': 64,
         'stop_by_metric': True,
         'verbose_bar': True,
         "snap_params": {'k': 3, 'early_stopping': True, 'patience': 2, 'swa': True}
     },
     nn_pipeline_params={"use_qnt": False, "use_te": False},
-    reader_params={'n_jobs': os.cpu_count(), 'cv': 7, 'random_state': 777, 'advanced_roles': True}
+    reader_params={'n_jobs': os.cpu_count(), 'cv': 5, 'random_state': 42, 'advanced_roles': True}
 )
 
 out_of_fold_predictions = automl.fit_predict(

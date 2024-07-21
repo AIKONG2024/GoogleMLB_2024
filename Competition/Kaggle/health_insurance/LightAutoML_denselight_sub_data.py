@@ -114,7 +114,7 @@ df_train_resampled['Response'] = y_train
 X_train, X_val = train_test_split(df_train_resampled, test_size=0.2, random_state=42, shuffle=True, stratify=df_train_resampled.Response)
 
 # LightAutoML model setup and training
-task = Task('binary') #‘binary’ 
+task = Task('binary')
 automl = TabularAutoML(
     task = task, 
     timeout = 600 * 3600,
@@ -130,7 +130,7 @@ automl = TabularAutoML(
         "cont_embedder": 'plr',
         'cat_embedder': 'weighted',
         'act_fun': 'SiLU',
-        "hidden_size": [512, 128], #32,
+        "hidden_size": [512, 128],
         'stop_by_metric': True,
         'embedding_size': 32,
         'verbose_bar': True,
@@ -138,27 +138,37 @@ automl = TabularAutoML(
         'opt_params': { 'lr': 0.0003 , 'weight_decay': 0 }
     },
     nn_pipeline_params = {"use_qnt": True, "use_te": False},
-    reader_params = {'n_jobs': 12, 'cv': 5, 'random_state': 42, 'advanced_roles': True}
+    reader_params = {'n_jobs': 12, 'cv': 12, 'random_state': 42, 'advanced_roles': True}
 )
 
-out_of_fold_predictions = automl.fit_predict(
-    X_train, valid_data=X_val,
+# 전체 훈련 데이터로 모델 학습
+automl.fit_predict(
+    X_train, 
     roles = {
         'target': 'Response',
         'drop': ['id'],
-    }, 
+    },
     verbose = 4
 )
 
-# AUC evaluation
-auc_score = roc_auc_score(y_train, out_of_fold_predictions.data)
+# 검증 데이터에 대한 예측
+val_pred = automl.predict(X_val)
+
+# AUC 평가
+if val_pred.data.shape[1] == 1:
+    auc_score = roc_auc_score(X_val['Response'], val_pred.data)
+else:
+    auc_score = roc_auc_score(X_val['Response'], val_pred.data[:, 1])
+
 print(f"LightAutoML AUC score on validation data: {auc_score:.4f}")
 
-# Final test data prediction
 test_pred = automl.predict(X_test)
 
-# Convert probabilities to binary predictions
-y_pred = test_pred.data[:, 0]
+if test_pred.data.shape[1] == 1:
+    y_pred = test_pred.data.flatten()
+else:
+    y_pred = test_pred.data[:, 1]
+
 pred_df = pd.DataFrame(y_pred, columns=['Response'])
 
 # Save results to sample_submission.csv
