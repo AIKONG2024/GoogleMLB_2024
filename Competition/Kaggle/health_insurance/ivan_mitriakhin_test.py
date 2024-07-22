@@ -48,7 +48,7 @@ import catboost as cb
 from catboost import Pool
 import gc
 
-FOLDS = 2
+FOLDS = 7
 skf = StratifiedKFold(n_splits=FOLDS, shuffle=True, random_state=42)
 test_preds = np.zeros((len(X_test), FOLDS), dtype=np.float32)
 scores = []
@@ -104,4 +104,4 @@ test_preds = np.mean(test_preds, axis=1)
 submission = pd.read_csv('./health_insurance/data/sample_submission.csv')
 submission[target] = test_preds.astype(np.float32)
 submission['id'] = submission['id'].astype(np.int32)
-submission.to_csv('submission_test.csv', index=False)
+submission.to_csv('./health_insurance/output/submission_ivan_test2.csv', index=False)
